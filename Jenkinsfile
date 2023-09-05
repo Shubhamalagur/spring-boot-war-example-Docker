@@ -3,74 +3,33 @@ pipeline {
     tools {
         maven 'Maven'
     }
+    environment{
+        VERSION = "${env.BUILD_ID}"
+    }
     stages {
         stage('SCM checkout') {
-            agent {
-              label {
-                    label "Captain_Philip"
-                     }
-                    }
             steps {
-                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Shubhamalagur/spring-boot-war-example.git']])
-                             }
+                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/Shubhamalagur/spring-boot-war-example-Docker.git']])
+            }
          }
-          stage('Sonarstage'){
-                parallel{
-                    stage('SonarstageA') {
-                        agent {
-                          label {
-                                label "Captain_Roger"
-                                 }
-                                }
-                        steps{
-                        echo "This is branch a"
-                        }
-                    }
-                    stage('SonarstageB') {
-                        agent {
-                          label {
-                                label "Captain_Philip"
-                                 }
-                                }
-                        steps{
-                        echo "This is branch b"
-                        }
-                    }
-                }}
-        stage('build') {
-            agent {
-              label {
-                    label "Captain_Philip"
-                     }
-                    }
+         stage('build') {
             steps {
                 sh 'mvn clean install'
             }
         }
-        stage('deploy') {
-            agent {
-              label {
-                    label "Captain_Philip"
-                     }
-                    }
-            steps {
-               deploy adapters: [tomcat9(credentialsId: 'tomcat9', path: '', url: 'http://13.232.88.151:8081')], contextPath: '/logo', war: '**/*.war'
+        stage("docker build and deploy")
+            {
+            steps{
+                    withCredentials([string(credentialsId: 'dockerhub2', variable: 'docker_password')]) 
+                    {
+                      sh '''
+                        docker build -t shubham177501/demo-1:${VERSION} .
+                        docker login -u shubham177501 -p $docker_password
+                        docker push shubham177501/demo-1:${VERSION}
+                        docker rmi shubham177501/demo-1:${VERSION}
+                    '''
+                }
             }
         }
-	stage('Email'){
-		agent {
-		label {
-			label "Captain_Philip"
-			} 
-			}
-	steps
-		{
-        emailext (
-            to: 'shubhamalagur@gmail.com',
-            subject: "${currentBuild.currentResult}: ${env.JOB_NAME} - build ${currentBuild.number}",
-            body: '${FILE, path="$WORKSPACE/results/summary.txt"}'
-        )
+        }
     }
-}
-}
-}
